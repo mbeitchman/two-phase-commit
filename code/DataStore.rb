@@ -9,105 +9,103 @@ module DataStore
 
 	class KeyValueStore
 
+		### public methods ###
 		public
-
-			def initialize
+		# create a new db if needed and connect to it
+		# db file is named procname.db
+		def connect(processName)
+			@procName = processName
+			@db_name = processName + ".db"
+			
+			# create the new db if it doesn't exist
+			if(!File.exists?(@db_name))
+				create_db
 			end
 
-			# create a new db if needed and connect to it
-			# db file is named procname.db
-			def connect(processName)
-				@procName = processName
-				@db_name = processName + ".db"
-				
-				# create the new db if it doesn't exist
-				if(!File.exists?(@db_name))
-					create_db
-				end
+			@db = SQLite3::Database.open(@db_name) 
+		end
 
-				@db = SQLite3::Database.open(@db_name) 
+		def put(key, value)
+
+			# make sure key and values are integers
+			if !key.is_a? Integer or !value.is_a? Integer
+				return false
 			end
 
-			def put(key, value)
-
-				# make sure key and values are integers
-				if !key.is_a? Integer or !value.is_a? Integer
-					return false
-				end
-
-				# reject the key if it exists in the datastore
-				if key_exists(key)
-					return false
-				end
-
-				@db.transaction do |db|
-					db.execute "INSERT INTO Key_value_store VALUES(#{key}, #{value})"
-				end
-
-				return true
-
+			# reject the key if it exists in the datastore
+			if key_exists(key)
+				return false
 			end
 
-			def del(key)
-
-				# make sure key is an integer
-				if !key.is_a? Integer
-					return false
-				end
-
-				# replicas always check if the key exists before deleting it
-				@db.transaction do |db|
-					db.execute "DELETE FROM Key_value_store WHERE(key = #{key})"
-				end
+			@db.transaction do |db|
+				db.execute "INSERT INTO Key_value_store VALUES(#{key}, #{value})"
 			end
 
-			def get(key)
+			return true
 
-				# make sure key is an integer
-				if !key.is_a? Integer
-					return false
-				end
+		end
 
-				rows = 0
-				@db.transaction do |db|
-					rows = db.execute "SELECT VALUE FROM Key_value_store WHERE key = #{key}"
-				end
+		def del(key)
 
-				val = rows[0]
-
-				# return value if it was retrieved
-				if val.nil?
-					false
-				else
-					val
-				end
+			# make sure key is an integer
+			if !key.is_a? Integer
+				return false
 			end
 
-			def close
-				@db.close
+			# replicas always check if the key exists before deleting it
+			@db.transaction do |db|
+				db.execute "DELETE FROM Key_value_store WHERE(key = #{key})"
+			end
+		end
+
+		def get(key)
+
+			# make sure key is an integer
+			if !key.is_a? Integer
+				return false
 			end
 
+			#rows = 0
+			@db.transaction do |db|
+				@rows = db.execute "SELECT VALUE FROM Key_value_store WHERE key = #{key}"
+			end
+
+			val = @rows.first
+
+			# return value if it was retrieved
+			if val.nil?
+				return false
+			end
+
+			return val
+
+		end
+
+		def close
+			@db.close
+		end
+
+		### private methods ###
 		private
+		def create_db
+			db = SQLite3::Database.new(@db_name)
+			db.execute "CREATE TABLE IF NOT EXISTS Key_value_store (key int, value int)"
+			db.close
+		end
 
-			def create_db
-				db = SQLite3::Database.new(@db_name)
-				db.execute "CREATE TABLE IF NOT EXISTS Key_value_store (key int, value int)"
-				db.close
+		def key_exists(key)
+			
+			@db.transaction do |db|
+				@rows = db.execute "SELECT Value FROM Key_value_store WHERE key = #{key}"
 			end
 
-			def key_exists(key)
+			val = @rows.first
+
+			if val.nil?
+				return false
+			end
 				
-				rows = 0
-				@db.transaction do |db|
-					rows = db.execute "SELECT Value FROM Key_value_store WHERE key = #{key}"
-				end
-
-				val = rows[0]
-				if val.nil?
-					false
-				else
-					true
-				end
-			end
+			return true
+		end
 	end
 end

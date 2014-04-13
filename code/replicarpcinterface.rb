@@ -38,7 +38,7 @@ class ReplicaRPCInterface
 
 		# for testing purposes
 		if timeout
-			sleep 60
+			sleep 1000
 		end
 
 		# check if we have seen or responded to this request
@@ -71,7 +71,7 @@ class ReplicaRPCInterface
 
 		# for testing purposes
 		if timeout
-			sleep 60
+			sleep 1000
 		end
 
 		# check if we have seen or responded to this request
@@ -106,6 +106,7 @@ class ReplicaRPCInterface
 		@transaction_list.each do |transaction|
 
 			if(transaction.id == id)
+				# todo: factor these into function
 				if(transaction.type == :put)
 					@file.puts("#{@procName} put COMMIT #{transaction.key} #{transaction.value} #{id}")
 					@file.flush

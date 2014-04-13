@@ -4,7 +4,7 @@ class MasterRPCInterface
 
   def initialize(replicas)
     @replicas = replicas
-    @id = 0
+    @transaction_id = 0
 
     @file = File.open("master.log", "a+")
 
@@ -28,12 +28,12 @@ class MasterRPCInterface
     end
   end
 
-  def put(key, value, skipvote = false, timeout = :false)
+  def put(key, value, skipvote = false, timeout = false)
     
     result = true;
     
     # vote phase
-    @file.puts("master start2PC put #{@id}")
+    @file.puts("master start2PC put #{@transaction_id}")
     @file.flush
 
     if !skipvote
@@ -41,55 +41,55 @@ class MasterRPCInterface
         @replicas.each do |replica|
           
           if timeout == :vote_timeout # test hook to timeout a replica
-            replica.connection.call( "#{replica.name}.vote_request_put", key, value, @id, true)
-          elsif replica.connection.call( "#{replica.name}.vote_request_put", key, value, @id) == false
+            replica.connection.call( "#{replica.name}.vote_request_put", key, value, @transaction_id, true)
+          elsif replica.connection.call( "#{replica.name}.vote_request_put", key, value, @transaction_id) == false
             result = false
             break
           end
         
         end
       rescue Timeout::Error
-          @file.puts("master abort_put #{@id} TIMEOUT")
+          @file.puts("master abort_put #{@transaction_id} TIMEOUT")
           @file.flush
-          @id = @id + 1
+          @transaction_id = @transaction_id + 1
           return false
       end
     end
 
     # commit phase
     if result == true
-      @file.puts("master commit_put #{@id}")
+      @file.puts("master commit_put #{@transaction_id}")
       @file.flush
 
       begin
         @replicas.each do |replica|
-          result = replica.connection.call( "#{replica.name}.commit", @id)
+          result = replica.connection.call( "#{replica.name}.commit", @transaction_id)
         end
       rescue Timeout::Error
-        @file.puts("CATASTROPHIC ERROR master commit_put #{@id} TIMEOUT ")
+        @file.puts("CATASTROPHIC ERROR master commit_put #{@transaction_id} TIMEOUT ")
         @file.flush
-        @id = @id + 1
+        @transaction_id = @transaction_id + 1
         return nil
       end
     else
-      @file.puts("master abort_put #{@id}")
+      @file.puts("master abort_put #{@transaction_id}")
       @file.flush
     end
 
-    @file.puts("master complete #{@id}")
+    @file.puts("master complete #{@transaction_id}")
     @file.flush
 
-    @id = @id + 1
+    @transaction_id = @transaction_id + 1
     return result
 
   end
 
 
-  def del(key, skipvote = false, timeout = :false)
+  def del(key, skipvote = false, timeout = false)
 
     result = true;
 
-    @file.puts("master start2PC del #{@id}")
+    @file.puts("master start2PC del #{@transaction_id}")
     @file.flush
 
     # vote phase
@@ -97,44 +97,44 @@ class MasterRPCInterface
       begin
         @replicas.each do |replica|
           if timeout == :vote_timeout # test hook to timeout a replica
-            replica.connection.call( "#{replica.name}.vote_request_del", key, @id, true)
-          elsif replica.connection.call( "#{replica.name}.vote_request_del", key, @id) == false
+            replica.connection.call( "#{replica.name}.vote_request_del", key, @transaction_id, true)
+          elsif replica.connection.call( "#{replica.name}.vote_request_del", key, @transaction_id) == false
             result = false
             break
           end
         end
       rescue Timeout::Error
-          @file.puts("master abort_del #{@id} TIMEOUT")
+          @file.puts("master abort_del #{@transaction_id} TIMEOUT")
           @file.flush
-          @id = @id + 1
+          @transaction_id = @transaction_id + 1
           return false
       end
     end
 
     # commit phase
     if result == true
-      @file.puts("master commit_del #{@id}")
+      @file.puts("master commit_del #{@transaction_id}")
       @file.flush
 
       begin
         @replicas.each do |replica|
-          result = replica.connection.call( "#{replica.name}.commit", @id)
+          result = replica.connection.call( "#{replica.name}.commit", @transaction_id)
         end
       rescue
-        @file.puts("CATASTROPHIC ERROR master commit_del #{@id} TIMEOUT ")
+        @file.puts("CATASTROPHIC ERROR master commit_del #{@transaction_id} TIMEOUT ")
         @file.flush
-        @id = @id + 1
+        @transaction_id = @transaction_id + 1
         return nil        
       end
     else
-      @file.puts("master abort_del #{@id}")
+      @file.puts("master abort_del #{@transaction_id}")
       @file.flush
     end
 
-    @file.puts("master complete #{@id}")
+    @file.puts("master complete #{@transaction_id}")
     @file.flush
 
-    @id = @id + 1
+    @transaction_id = @transaction_id + 1
     return result
     
   end

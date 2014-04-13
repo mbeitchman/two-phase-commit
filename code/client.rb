@@ -97,9 +97,9 @@ else
 			Process.detach(replica_proc)
 		end
 
-		sleep 2
 		puts "<<2PC Client>> Waiting for processes to start..."
-		sleep 5
+		# wait for procs to start up
+		sleep 10
 
 		# test cases
 		case ARGV[0].to_i

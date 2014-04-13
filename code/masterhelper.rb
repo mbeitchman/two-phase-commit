@@ -4,6 +4,10 @@ require './masterrpcinterface.rb'
 
 class MasterRecover
 
+	#constants
+	ACTION_TYPE = 1
+	ACTION = 2
+
 	public 
 		def initialize(log_path, data_store, master)
 			@log_path = log_path
@@ -15,13 +19,10 @@ class MasterRecover
 
 		def restore
 
-			# parse log contents
 			parselog
 
-			# replay actions needed to do recovery
 			restart_phase
 
-			# clean the log
 			clean_log 
 		end
 
@@ -37,20 +38,28 @@ class MasterRecover
 
 		def restart_phase
 			@transactions.each do |key, value| 
-				vals = value.split(" ")
-				if vals[1] == "start2PC"
-					if vals[2] == "put"
-						@master.put(key, value)
-					elsif vals[2] == "del"
-						@master.del(key)
-					end
-				elsif vals[1].include?("commit")
-					if vals[1] == "commit_put"
-						@master.put(key, value, true)
-					elsif vals[1] == "commit_del"
-						@master.del(key, true)
-					end
+				@vals = value.split(" ")
+				if @vals[ACTION_TYPE] == "start2PC"
+					redo_vote_phase(key, value)
+				elsif @vals[ACTION_TYPE].include?("commit")
+					redo_commit_phase(key, value)
 				end 
+			end
+		end
+
+		def redo_vote_phase(key, value)
+			if @vals[ACTION] == "put"
+				@master.put(key, value)
+			elsif @vals[ACTION] == "del"
+				@master.del(key, value)
+			end
+		end
+
+		def redo_commit_phase
+			if @vals[ACTION_TYPE] == "commit_put"
+				@master.put(key, value, true)
+			elsif @vals[ACTION_TYPE] == "commit_del"
+				@master.del(key, true)
 			end
 		end
 

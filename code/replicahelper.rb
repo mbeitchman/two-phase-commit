@@ -2,6 +2,12 @@
 
 class ReplicaRecover
 
+	#constants
+	ACTION_TYPE = 1
+	ACTION = 2
+	KEY = 3
+	VALUE = 4
+
 	public 
 
 		def initialize(log_path, data_store)
@@ -31,21 +37,29 @@ class ReplicaRecover
 		end
 
 		def restore_data_store
-			@transactions.each do |key, value| 
-				#puts "#{key}: #{value}"
-				vals = value.split(" ")
-				if(vals[2] == "COMMIT")
-					if(vals[1] == "put")
-						if @data_store.get(vals[3].to_i) != vals[4].to_i  
-							@data_store.put(vals[3].to_i, vals[4].to_i)
-						end
-					elsif(vals[1] == "delete")
-						if @data_store.get(vals[3].to_i) != false
-							@data_store.del(vals[3].to_i)
-						end
-					end
+			@transactions.each do |key, value| 	
+				@vals = value.split(" ")
+
+				if(@vals[ACTION] == "COMMIT")
+					restore_action
 				end
 			end
+		end
+
+		def restore_action
+			if(@vals[ACTION_TYPE] == "put")
+				restore_put(vals[KEY].to_i, vals[VALUE].to_i)
+			elsif(vals[ACTION_TYPE] == "delete")
+				restore_delete(vals[KEY].to_i)
+			end
+		end
+
+		def restore_put(key, value)
+			@data_store.put(key, value)
+		end
+
+		def restore_delete(key, value)
+			@data_store.del(key, value)
 		end
 
 		def clean_log
